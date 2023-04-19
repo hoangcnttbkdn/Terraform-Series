@@ -72,7 +72,7 @@ resource "aws_nat_gateway" "public" {
   allocation_id = aws_eip.nat[count.index].id
   subnet_id     = aws_subnet.public_subnet[0].id
   tags = {
-    Name = "Public NAT"
+    Name = "${var.project_name}-nat-gateway"
   }
 }
 
