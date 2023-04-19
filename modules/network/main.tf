@@ -12,6 +12,7 @@ resource "aws_subnet" "private_subnet" {
 
   vpc_id            = aws_vpc.vpc.id
   cidr_block        = var.private_subnet[count.index]
+  map_public_ip_on_launch = false
   availability_zone = var.availability_zone[count.index % length(var.availability_zone)]
 
   tags = {
@@ -24,6 +25,7 @@ resource "aws_subnet" "public_subnet" {
 
   vpc_id            = aws_vpc.vpc.id
   cidr_block        = var.public_subnet[count.index]
+  map_public_ip_on_launch = true
   availability_zone = var.availability_zone[count.index % length(var.availability_zone)]
 
   tags = {
@@ -58,36 +60,40 @@ resource "aws_route_table_association" "public_association" {
   route_table_id = aws_route_table.public.id
 }
 
-# resource "aws_eip" "nat" {
-#   vpc = true
-# }
+resource "aws_eip" "nat" {
+  count      = var.create_nat_gateway ? 1 : 0
+  vpc = true
+}
 
-# resource "aws_nat_gateway" "public" {
-#   depends_on = [aws_internet_gateway.ig]
+resource "aws_nat_gateway" "public" {
+  depends_on = [aws_internet_gateway.ig]
+  count      = var.create_nat_gateway ? 1 : 0
 
-#   allocation_id = aws_eip.nat.id
-#   subnet_id     = aws_subnet.public_subnet[0].id
+  allocation_id = aws_eip.nat[count.index].id
+  subnet_id     = aws_subnet.public_subnet[0].id
+  tags = {
+    Name = "Public NAT"
+  }
+}
 
-#   tags = {
-#     Name = "Public NAT"
-#   }
-# }
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.vpc.id
 
-# resource "aws_route_table" "private" {
-#   vpc_id = aws_vpc.vpc.id
+  dynamic "route" {
+    for_each = var.create_nat_gateway ? [1] : []
+    content {
+      cidr_block = "0.0.0.0/0"
+      gateway_id = aws_nat_gateway.public[0].id
+    }
+  }
 
-#   route {
-#     cidr_block = "0.0.0.0/0"
-#     gateway_id = aws_nat_gateway.public.id
-#   }
+  tags = {
+    "Name" = "${var.project_name}-private-rtb"
+  }
+}
 
-#   tags = {
-#     "Name" = "private"
-#   }
-# }
-
-# resource "aws_route_table_association" "public_private" {
-#   for_each       = { for k, v in aws_subnet.private_subnet : k => v }
-#   subnet_id      = each.value.id
-#   route_table_id = aws_route_table.private.id
-# }
+resource "aws_route_table_association" "public_private" {
+  for_each       = { for k, v in aws_subnet.private_subnet : k => v }
+  subnet_id      = each.value.id
+  route_table_id = aws_route_table.private.id
+}

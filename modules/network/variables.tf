@@ -18,3 +18,8 @@ variable "availability_zone" {
 variable "project_name" {
   type = string
 }
+
+variable "create_nat_gateway" {
+  type    = bool
+  default = false
+}

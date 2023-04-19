@@ -21,3 +21,7 @@ variable "backend_s3_role_arn" {
 variable "backend_s3_dynamodb_table" {
   type = string
 }
+
+variable "environment" {
+  type = string
+}

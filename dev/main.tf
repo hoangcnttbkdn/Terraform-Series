@@ -6,4 +6,5 @@ module "vpc" {
   public_subnet     = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
   availability_zone = ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
   project_name = "rekaizen"
+  create_nat_gateway = false
 }
