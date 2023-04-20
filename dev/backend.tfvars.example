@@ -1,0 +1,6 @@
+bucket = 
+key = 
+region = 
+encrypt = 
+role_arn = 
+dynamodb_table = 
