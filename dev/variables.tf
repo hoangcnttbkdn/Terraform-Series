@@ -1,16 +1,16 @@
 # Backend s3 variables
 variable "backend_s3_bucket" {
   description = "Bucket name where to save backend terraform of project"
-  type = string
+  type        = string
 }
 
 variable "backend_s3_key" {
   description = "state file name"
-  type = string
+  type        = string
 }
 
 variable "backend_s3_region" {
-  type = string
+  type    = string
   default = "ap-northeast-1"
 }
 

@@ -1,11 +1,11 @@
 module "vpc" {
   source = "../modules/network"
 
-  vpc_cidr_block    = "10.0.0.0/16"
-  private_subnet    = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
-  public_subnet     = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
-  availability_zone = ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
-  project_name = "rekaizen"
+  vpc_cidr_block     = "10.0.0.0/16"
+  private_subnet     = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+  public_subnet      = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
+  availability_zone  = ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
+  project_name       = "rekaizen"
   create_nat_gateway = false
 }
 
@@ -32,27 +32,55 @@ module "vpc" {
 # }
 
 
-resource "tls_private_key" "pk" {
+resource "tls_private_key" "key" {
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
 resource "aws_key_pair" "kp" {
-  key_name   = "myKey"       # Create "myKey" to AWS!!
-  public_key = tls_private_key.pk.public_key_openssh
+  key_name   = "myKey" # Create "myKey" to AWS!!
+  public_key = tls_private_key.key.public_key_openssh
 
   provisioner "local-exec" { # Create "myKey.pem" to your computer!!
-    command = "echo '${tls_private_key.pk.private_key_pem}' > ./myKey.pem"
+    command = "echo '${tls_private_key.key.private_key_pem}' > ./myKey.pem"
   }
 }
 
+resource "local_sensitive_file" "private_key" {
+  filename        = "${path.module}/ansible.pem"
+  content         = tls_private_key.key.private_key_pem
+  file_permission = "0400"
+}
+
 resource "aws_instance" "my_instance" {
-  ami           = "ami-052c9af0c988f8bbd"
-  instance_type = "t2.micro"
-  subnet_id     = element(module.vpc.public_subnet_ids, 0)
-  key_name      = aws_key_pair.kp.key_name
-  user_data     = <<-EOF
+  ami                    = "ami-0ba13f7ae7e798cac"
+  instance_type          = "t2.micro"
+  subnet_id              = element(module.vpc.public_subnet_ids, 0)
+  vpc_security_group_ids = [module.vpc.public_sg_id]
+  key_name               = aws_key_pair.kp.key_name
+  user_data              = <<-EOF
     #!/bin/bash
     echo "Hello, World" > index.html
   EOF
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo yum update -y",
+    ]
+
+    connection {
+      type        = "ssh"
+      user        = "centos"
+      private_key = tls_private_key.key.private_key_pem
+      host        = self.public_ip
+    }
+  }
+
+  provisioner "local-exec" {
+    command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u centos --key-file ansible.pem -T 300 -i '${self.public_ip},', ../ansible/playbooks/playbook.yaml"
+  }
+
+  tags = {
+    Name = "Test-server"
+  }
 }
